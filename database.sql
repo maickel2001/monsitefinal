@@ -203,20 +203,20 @@ INSERT INTO categories (name, description, icon, sort_order) VALUES
 
 -- Insert default services
 INSERT INTO services (category_id, name, description, unit_price, min_quantity, max_quantity) VALUES 
-(1, 'Facebook Likes', 'Get real Facebook page likes', 0.0100, 100, 100000),
-(1, 'Facebook Shares', 'Increase your Facebook post shares', 0.0200, 50, 50000),
-(2, 'YouTube Views', 'Boost your YouTube video views', 0.0050, 1000, 1000000),
-(2, 'YouTube Subscribers', 'Grow your YouTube channel', 0.1500, 100, 10000),
-(3, 'Instagram Followers', 'Real Instagram followers', 0.0800, 100, 50000),
-(3, 'Instagram Likes', 'Instagram post likes', 0.0150, 100, 100000);
+(1, 'Facebook Likes', 'Get real Facebook page likes', 5.00, 100, 100000),
+(1, 'Facebook Shares', 'Increase your Facebook post shares', 10.00, 50, 50000),
+(2, 'YouTube Views', 'Boost your YouTube video views', 2.50, 1000, 1000000),
+(2, 'YouTube Subscribers', 'Grow your YouTube channel', 75.00, 100, 10000),
+(3, 'Instagram Followers', 'Real Instagram followers', 40.00, 100, 50000),
+(3, 'Instagram Likes', 'Instagram post likes', 7.50, 100, 100000);
 
 -- Insert default site settings
 INSERT INTO site_settings (setting_key, setting_value, setting_type, description) VALUES 
 ('site_name', 'SMM Platform', 'string', 'Website name'),
 ('site_description', 'Premium Social Media Marketing Platform', 'string', 'Website description'),
 ('maintenance_mode', '0', 'boolean', 'Maintenance mode status'),
-('currency', 'USD', 'string', 'Default currency'),
-('timezone', 'UTC', 'string', 'Default timezone'),
+('currency', 'FCFA', 'string', 'Default currency'),
+('timezone', 'Africa/Abidjan', 'string', 'Default timezone'),
 ('email_from', 'noreply@smmplatform.com', 'string', 'Default sender email'),
 ('email_from_name', 'SMM Platform', 'string', 'Default sender name'),
 ('theme_colors', '{"primary":"#007AFF","secondary":"#5856D6","success":"#34C759","warning":"#FF9500","danger":"#FF3B30"}', 'json', 'Theme color scheme');

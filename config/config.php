@@ -6,9 +6,9 @@
 
 // Database Configuration
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'u634930929_In0');
-define('DB_USER', 'u634930929_In0');
-define('DB_PASS', 'Ino1234@');
+define('DB_NAME', 'smm_platform');
+define('DB_USER', 'root');
+define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
 // Application Configuration
@@ -22,6 +22,11 @@ define('SESSION_NAME', 'smm_session');
 define('SESSION_LIFETIME', 3600); // 1 hour
 define('PASSWORD_COST', 12);
 define('CSRF_TOKEN_NAME', 'csrf_token');
+
+// Currency Configuration
+define('CURRENCY', 'FCFA');
+define('CURRENCY_SYMBOL', '₣');
+define('CURRENCY_POSITION', 'after'); // 'before' or 'after'
 
 // Email Configuration
 define('SMTP_HOST', 'localhost');
@@ -46,7 +51,7 @@ ini_set('log_errors', 1);
 ini_set('error_log', APP_ROOT . '/logs/error.log');
 
 // Timezone
-date_default_timezone_set('UTC');
+date_default_timezone_set('Africa/Abidjan');
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
@@ -70,4 +75,14 @@ if (MAINTENANCE_MODE && !in_array($_SERVER['REMOTE_ADDR'], MAINTENANCE_ALLOWED_I
     http_response_code(503);
     include APP_ROOT . '/maintenance.php';
     exit;
+}
+
+// Helper function for currency formatting
+function formatCurrency($amount) {
+    $amount = number_format($amount, 0, ',', ' ');
+    if (CURRENCY_POSITION === 'before') {
+        return CURRENCY_SYMBOL . ' ' . $amount;
+    } else {
+        return $amount . ' ' . CURRENCY_SYMBOL;
+    }
 }
