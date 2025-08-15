@@ -29,9 +29,6 @@ if (ini_get("session.use_cookies")) {
     );
 }
 
-// Ne pas rediriger automatiquement - laisser l'utilisateur choisir
-echo "<script>
-    alert('Vous avez été déconnecté avec succès.');
-    window.location.href = 'dashboard.php';
-</script>";
+// Rediriger vers la page d'accueil (utilisateur non connecté)
+header('Location: index.php');
 exit;
