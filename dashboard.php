@@ -1,4 +1,27 @@
 <?php
+// Gestionnaire d'erreur personnalisé pour le dashboard
+function dashboardErrorHandler($errno, $errstr, $errfile, $errline) {
+    if (!(error_reporting() & $errno)) {
+        return false;
+    }
+    
+    $errorMessage = "Dashboard Error [$errno]: $errstr in $errfile on line $errline";
+    error_log($errorMessage);
+    
+    // En mode développement, afficher l'erreur
+    if (defined('APP_ENV') && APP_ENV === 'development') {
+        echo "<div style='background: #f8d7da; color: #721c24; padding: 10px; margin: 10px; border: 1px solid #f5c6cb; border-radius: 4px;'>";
+        echo "<strong>Dashboard Error:</strong> $errstr<br>";
+        echo "<small>File: $errfile, Line: $errline</small>";
+        echo "</div>";
+    }
+    
+    return true;
+}
+
+// Définir le gestionnaire d'erreur
+set_error_handler('dashboardErrorHandler');
+
 require_once 'config/config.php';
 require_once 'includes/Database.php';
 require_once 'includes/User.php';
@@ -18,10 +41,48 @@ if (!$user->isLoggedIn()) {
 }
 
 $currentUser = $user->getCurrentUser();
-$userOrders = $orders->getUserOrders($currentUser['id']);
-$orderStats = $orders->getOrderStats($currentUser['id']);
-$userTickets = $tickets->getUserTickets($currentUser['id']);
-$categories = $services->getAllCategories();
+
+// Vérifier si l'utilisateur est bien récupéré
+if (!$currentUser || !is_array($currentUser) || !isset($currentUser['id'])) {
+    // Rediriger vers la page de connexion si l'utilisateur n'est pas valide
+    header('Location: login.php');
+    exit;
+}
+
+// S'assurer que toutes les clés nécessaires existent
+$currentUser = array_merge([
+    'id' => 0,
+    'first_name' => '',
+    'last_name' => '',
+    'email' => '',
+    'phone' => '',
+    'balance' => 0
+], $currentUser);
+
+// Récupérer les données avec gestion d'erreur
+try {
+    $userOrdersData = $orders->getUserOrders($currentUser['id']);
+    $userOrders = (is_array($userOrdersData) && isset($userOrdersData['orders'])) ? $userOrdersData['orders'] : [];
+    
+    $orderStats = $orders->getOrderStats($currentUser['id']);
+    if (!is_array($orderStats)) {
+        $orderStats = [];
+    }
+    
+    $userTicketsData = $tickets->getUserTickets($currentUser['id']);
+    $userTickets = (is_array($userTicketsData) && isset($userTicketsData['tickets'])) ? $userTicketsData['tickets'] : [];
+    
+    $categories = $services->getAllCategories();
+    if (!is_array($categories)) {
+        $categories = [];
+    }
+} catch (Exception $e) {
+    error_log("Error loading dashboard data: " . $e->getMessage());
+    $userOrders = [];
+    $orderStats = [];
+    $userTickets = [];
+    $categories = [];
+}
 
 // Handle tab switching
 $activeTab = $_GET['tab'] ?? 'overview';
@@ -30,12 +91,17 @@ $activeTab = $_GET['tab'] ?? 'overview';
 $message = '';
 $messageType = '';
 
+// Vérifier que la session CSRF est bien définie
+if (!isset($_SESSION[CSRF_TOKEN_NAME])) {
+    $_SESSION[CSRF_TOKEN_NAME] = bin2hex(random_bytes(32));
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'place_order':
                 try {
-                    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION[CSRF_TOKEN_NAME]) {
+                    if (!isset($_POST['csrf_token']) || !isset($_SESSION[CSRF_TOKEN_NAME]) || $_POST['csrf_token'] !== $_SESSION[CSRF_TOKEN_NAME]) {
                         throw new Exception("Invalid request");
                     }
                     
@@ -51,8 +117,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'success';
                     
                     // Refresh data
-                    $userOrders = $orders->getUserOrders($currentUser['id']);
-                    $orderStats = $orders->getOrderStats($currentUser['id']);
+                    $userOrdersData = $orders->getUserOrders($currentUser['id']) ?: [];
+                    $userOrders = is_array($userOrdersData) && isset($userOrdersData['orders']) ? $userOrdersData['orders'] : [];
+                    $orderStats = $orders->getOrderStats($currentUser['id']) ?: [];
                 } catch (Exception $e) {
                     $message = $e->getMessage();
                     $messageType = 'error';
@@ -61,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'create_ticket':
                 try {
-                    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION[CSRF_TOKEN_NAME]) {
+                    if (!isset($_POST['csrf_token']) || !isset($_SESSION[CSRF_TOKEN_NAME]) || $_POST['csrf_token'] !== $_SESSION[CSRF_TOKEN_NAME]) {
                         throw new Exception("Invalid request");
                     }
                     
@@ -77,7 +144,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $messageType = 'success';
                     
                     // Refresh data
-                    $userTickets = $tickets->getUserTickets($currentUser['id']);
+                    $userTicketsData = $tickets->getUserTickets($currentUser['id']) ?: [];
+                    $userTickets = is_array($userTicketsData) && isset($userTicketsData['tickets']) ? $userTicketsData['tickets'] : [];
                 } catch (Exception $e) {
                     $message = $e->getMessage();
                     $messageType = 'error';
@@ -86,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'update_profile':
                 try {
-                    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION[CSRF_TOKEN_NAME]) {
+                    if (!isset($_POST['csrf_token']) || !isset($_SESSION[CSRF_TOKEN_NAME]) || $_POST['csrf_token'] !== $_SESSION[CSRF_TOKEN_NAME]) {
                         throw new Exception("Invalid request");
                     }
                     
@@ -579,19 +647,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div id="overview" class="tab-content <?php echo $activeTab === 'overview' ? 'active' : ''; ?>">
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-number"><?php echo $orderStats['pending'] ?? 0; ?></div>
+                        <div class="stat-number"><?php echo is_array($orderStats) && isset($orderStats['pending']['count']) ? $orderStats['pending']['count'] : 0; ?></div>
                         <div class="stat-label">Pending Orders</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number"><?php echo $orderStats['completed'] ?? 0; ?></div>
+                        <div class="stat-number"><?php echo is_array($orderStats) && isset($orderStats['completed']['count']) ? $orderStats['completed']['count'] : 0; ?></div>
                         <div class="stat-label">Completed Orders</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number"><?php echo $orderStats['total_spent'] ? formatCurrency($orderStats['total_spent']) : '0 ₣'; ?></div>
+                        <div class="stat-number"><?php 
+                            $totalSpent = 0;
+                            if (is_array($orderStats)) {
+                                foreach ($orderStats as $status => $data) {
+                                    if (isset($data['total'])) {
+                                        $totalSpent += $data['total'];
+                                    }
+                                }
+                            }
+                            echo formatCurrency($totalSpent);
+                        ?></div>
                         <div class="stat-label">Total Spent</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number"><?php echo count($userTickets); ?></div>
+                        <div class="stat-number"><?php echo is_array($userTickets) ? count($userTickets) : 0; ?></div>
                         <div class="stat-label">Support Tickets</div>
                     </div>
                 </div>
@@ -616,20 +694,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach (array_slice($userOrders, 0, 5) as $order): ?>
+                                    <?php 
+                                    if (is_array($userOrders) && !empty($userOrders)):
+                                        foreach (array_slice($userOrders, 0, 5) as $order): 
+                                            if (is_array($order)):
+                                    ?>
                                         <tr>
-                                            <td>#<?php echo $order['id']; ?></td>
+                                            <td>#<?php echo htmlspecialchars($order['id'] ?? 'N/A'); ?></td>
                                             <td><?php echo htmlspecialchars($order['service_name'] ?? 'N/A'); ?></td>
-                                            <td><?php echo number_format($order['quantity']); ?></td>
-                                            <td><?php echo formatCurrency($order['total_amount']); ?></td>
+                                            <td><?php echo number_format($order['quantity'] ?? 0); ?></td>
+                                            <td><?php echo formatCurrency($order['total_amount'] ?? 0); ?></td>
                                             <td>
-                                                <span class="status-badge status-<?php echo $order['status']; ?>">
-                                                    <?php echo ucfirst(str_replace('_', ' ', $order['status'])); ?>
+                                                <span class="status-badge status-<?php echo htmlspecialchars($order['status'] ?? 'pending'); ?>">
+                                                    <?php echo ucfirst(str_replace('_', ' ', $order['status'] ?? 'pending')); ?>
                                                 </span>
                                             </td>
-                                            <td><?php echo date('M j, Y', strtotime($order['created_at'])); ?></td>
+                                            <td><?php echo isset($order['created_at']) ? date('M j, Y', strtotime($order['created_at'])) : 'N/A'; ?></td>
                                         </tr>
-                                    <?php endforeach; ?>
+                                    <?php 
+                                            endif;
+                                        endforeach; 
+                                    endif;
+                                    ?>
                                 </tbody>
                             </table>
                         </div>
@@ -662,23 +748,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach (array_slice($userTickets, 0, 5) as $ticket): ?>
+                                    <?php 
+                                    if (is_array($userTickets) && !empty($userTickets)):
+                                        foreach (array_slice($userTickets, 0, 5) as $ticket): 
+                                            if (is_array($ticket)):
+                                    ?>
                                         <tr>
-                                            <td>#<?php echo $ticket['id']; ?></td>
-                                            <td><?php echo htmlspecialchars($ticket['subject']); ?></td>
+                                            <td>#<?php echo htmlspecialchars($ticket['id'] ?? 'N/A'); ?></td>
+                                            <td><?php echo htmlspecialchars($ticket['subject'] ?? 'N/A'); ?></td>
                                             <td>
-                                                <span class="status-badge status-<?php echo $ticket['priority']; ?>">
-                                                    <?php echo ucfirst($ticket['priority']); ?>
+                                                <span class="status-badge status-<?php echo htmlspecialchars($ticket['priority'] ?? 'medium'); ?>">
+                                                    <?php echo ucfirst($ticket['priority'] ?? 'medium'); ?>
                                                 </span>
                                             </td>
                                             <td>
-                                                <span class="status-badge status-<?php echo $ticket['status']; ?>">
-                                                    <?php echo ucfirst($ticket['status']); ?>
+                                                <span class="status-badge status-<?php echo htmlspecialchars($ticket['status'] ?? 'open'); ?>">
+                                                    <?php echo ucfirst($ticket['status'] ?? 'open'); ?>
                                                 </span>
                                             </td>
-                                            <td><?php echo date('M j, Y', strtotime($ticket['created_at'])); ?></td>
+                                            <td><?php echo isset($ticket['created_at']) ? date('M j, Y', strtotime($ticket['created_at'])) : 'N/A'; ?></td>
                                         </tr>
-                                    <?php endforeach; ?>
+                                    <?php 
+                                            endif;
+                                        endforeach; 
+                                    endif;
+                                    ?>
                                 </tbody>
                             </table>
                         </div>
@@ -716,30 +810,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($userOrders as $order): ?>
+                                    <?php 
+                                    if (is_array($userOrders) && !empty($userOrders)):
+                                        foreach ($userOrders as $order): 
+                                            if (is_array($order)):
+                                    ?>
                                         <tr>
-                                            <td>#<?php echo $order['id']; ?></td>
+                                            <td>#<?php echo htmlspecialchars($order['id'] ?? 'N/A'); ?></td>
                                             <td><?php echo htmlspecialchars($order['service_name'] ?? 'N/A'); ?></td>
                                             <td>
-                                                <a href="<?php echo htmlspecialchars($order['link']); ?>" target="_blank" class="btn btn-secondary btn-sm">
+                                                <a href="<?php echo htmlspecialchars($order['link'] ?? '#'); ?>" target="_blank" class="btn btn-secondary btn-sm">
                                                     <i class="fas fa-external-link-alt"></i> View
                                                 </a>
                                             </td>
-                                            <td><?php echo number_format($order['quantity']); ?></td>
-                                            <td><?php echo formatCurrency($order['total_amount']); ?></td>
+                                            <td><?php echo number_format($order['quantity'] ?? 0); ?></td>
+                                            <td><?php echo formatCurrency($order['total_amount'] ?? 0); ?></td>
                                             <td>
-                                                <span class="status-badge status-<?php echo $order['status']; ?>">
-                                                    <?php echo ucfirst(str_replace('_', ' ', $order['status'])); ?>
+                                                <span class="status-badge status-<?php echo htmlspecialchars($order['status'] ?? 'pending'); ?>">
+                                                    <?php echo ucfirst(str_replace('_', ' ', $order['status'] ?? 'pending')); ?>
                                                 </span>
                                             </td>
-                                            <td><?php echo date('M j, Y H:i', strtotime($order['created_at'])); ?></td>
+                                            <td><?php echo isset($order['created_at']) ? date('M j, Y H:i', strtotime($order['created_at'])) : 'N/A'; ?></td>
                                             <td>
-                                                <button class="btn btn-primary btn-sm" onclick="viewOrderDetails(<?php echo $order['id']; ?>)">
+                                                <button class="btn btn-primary btn-sm" onclick="viewOrderDetails(<?php echo htmlspecialchars($order['id'] ?? 0); ?>)">
                                                     <i class="fas fa-eye"></i> Details
                                                 </button>
                                             </td>
                                         </tr>
-                                    <?php endforeach; ?>
+                                    <?php 
+                                            endif;
+                                        endforeach; 
+                                    endif;
+                                    ?>
                                 </tbody>
                             </table>
                         </div>
@@ -762,7 +864,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     
                     <form method="POST" action="" id="orderForm">
-                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION[CSRF_TOKEN_NAME]; ?>">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION[CSRF_TOKEN_NAME] ?? ''; ?>">
                         <input type="hidden" name="action" value="place_order">
                         
                         <div class="form-row">
@@ -770,9 +872,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label for="category" class="form-label">Category</label>
                                 <select class="form-select" id="category" required>
                                     <option value="">Select Category</option>
-                                    <?php foreach ($categories as $category): ?>
-                                        <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
-                                    <?php endforeach; ?>
+                                    <?php 
+                                    if (is_array($categories) && !empty($categories)):
+                                        foreach ($categories as $category): 
+                                            if (is_array($category)):
+                                    ?>
+                                        <option value="<?php echo htmlspecialchars($category['id'] ?? ''); ?>"><?php echo htmlspecialchars($category['name'] ?? 'Unknown Category'); ?></option>
+                                    <?php 
+                                            endif;
+                                        endforeach; 
+                                    endif;
+                                    ?>
                                 </select>
                             </div>
                             
@@ -837,28 +947,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($userTickets as $ticket): ?>
+                                    <?php 
+                                    if (is_array($userTickets) && !empty($userTickets)):
+                                        foreach ($userTickets as $ticket): 
+                                            if (is_array($ticket)):
+                                    ?>
                                         <tr>
-                                            <td>#<?php echo $ticket['id']; ?></td>
-                                            <td><?php echo htmlspecialchars($ticket['subject']); ?></td>
+                                            <td>#<?php echo htmlspecialchars($ticket['id'] ?? 'N/A'); ?></td>
+                                            <td><?php echo htmlspecialchars($ticket['subject'] ?? 'N/A'); ?></td>
                                             <td>
-                                                <span class="status-badge status-<?php echo $ticket['priority']; ?>">
-                                                    <?php echo ucfirst($ticket['priority']); ?>
+                                                <span class="status-badge status-<?php echo htmlspecialchars($ticket['priority'] ?? 'medium'); ?>">
+                                                    <?php echo ucfirst($ticket['priority'] ?? 'medium'); ?>
                                                 </span>
                                             </td>
                                             <td>
-                                                <span class="status-badge status-<?php echo $ticket['status']; ?>">
-                                                    <?php echo ucfirst($ticket['status']); ?>
+                                                <span class="status-badge status-<?php echo htmlspecialchars($ticket['status'] ?? 'open'); ?>">
+                                                    <?php echo ucfirst($ticket['status'] ?? 'open'); ?>
                                                 </span>
                                             </td>
-                                            <td><?php echo date('M j, Y H:i', strtotime($ticket['created_at'])); ?></td>
+                                            <td><?php echo isset($ticket['created_at']) ? date('M j, Y H:i', strtotime($ticket['created_at'])) : 'N/A'; ?></td>
                                             <td>
-                                                <button class="btn btn-primary btn-sm" onclick="viewTicket(<?php echo $ticket['id']; ?>)">
+                                                <button class="btn btn-primary btn-sm" onclick="viewTicket(<?php echo htmlspecialchars($ticket['id'] ?? 0); ?>)">
                                                     <i class="fas fa-eye"></i> View
                                                 </button>
                                             </td>
                                         </tr>
-                                    <?php endforeach; ?>
+                                    <?php 
+                                            endif;
+                                        endforeach; 
+                                    endif;
+                                    ?>
                                 </tbody>
                             </table>
                         </div>
@@ -884,7 +1002,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     
                     <form method="POST" action="">
-                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION[CSRF_TOKEN_NAME]; ?>">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION[CSRF_TOKEN_NAME] ?? ''; ?>">
                         <input type="hidden" name="action" value="create_ticket">
                         
                         <div class="form-group">
@@ -922,7 +1040,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     
                     <form method="POST" action="">
-                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION[CSRF_TOKEN_NAME]; ?>">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION[CSRF_TOKEN_NAME] ?? ''; ?>">
                         <input type="hidden" name="action" value="update_profile">
                         
                         <div class="form-row">
@@ -967,7 +1085,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     
                     <form method="POST" action="">
-                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION[CSRF_TOKEN_NAME]; ?>">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION[CSRF_TOKEN_NAME] ?? ''; ?>">
                         <input type="hidden" name="action" value="change_password">
                         
                         <div class="form-row">

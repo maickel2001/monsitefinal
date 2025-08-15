@@ -115,7 +115,10 @@ class User {
     }
     
     public function isLoggedIn() {
-        return isset($_SESSION['user_id']) && $_SESSION['user_role'] === 'user';
+        return isset($_SESSION['user_id']) && 
+               isset($_SESSION['user_role']) && 
+               $_SESSION['user_role'] === 'user' &&
+               !empty($_SESSION['user_id']);
     }
     
     public function getCurrentUser() {
@@ -123,10 +126,23 @@ class User {
             return null;
         }
         
-        return $this->db->fetch(
-            "SELECT * FROM users WHERE id = :id",
-            ['id' => $_SESSION['user_id']]
-        );
+        try {
+            $user = $this->db->fetch(
+                "SELECT * FROM users WHERE id = :id AND status = 'active'",
+                ['id' => $_SESSION['user_id']]
+            );
+            
+            if (!$user) {
+                // L'utilisateur n'existe pas ou n'est pas actif
+                $this->logout();
+                return null;
+            }
+            
+            return $user;
+        } catch (Exception $e) {
+            error_log("Error getting current user: " . $e->getMessage());
+            return null;
+        }
     }
     
     public function updateProfile($userId, $data) {
