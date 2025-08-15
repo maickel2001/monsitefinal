@@ -2,12 +2,17 @@
 require_once 'config/config.php';
 require_once 'includes/Database.php';
 require_once 'includes/User.php';
+require_once 'includes/Services.php';
 require_once 'includes/Reviews.php';
 
 $user = new User();
+$services = new Services();
 $reviews = new Reviews();
 
 $isLoggedIn = $user->isLoggedIn();
+$currentUser = $isLoggedIn ? $user->getCurrentUser() : null;
+
+// Get approved reviews for display
 $approvedReviews = $reviews->getApprovedReviews(6);
 ?>
 <!DOCTYPE html>
@@ -16,42 +21,30 @@ $approvedReviews = $reviews->getApprovedReviews(6);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo APP_NAME; ?> - Premium Social Media Marketing Platform</title>
-    <meta name="description" content="Boost your social media presence with our premium SMM services. Get real likes, followers, views, and engagement for all major platforms.">
-    
-    <!-- Font Awesome for icons -->
+    <meta name="description" content="Boost your social media presence with our premium SMM services. Get real followers, likes, views, and engagement for all major platforms.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Chart.js for analytics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <style>
-        /* Reset and base styles */
+        /* Reset and Base Styles */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
-            color: #1d1d1f;
-            background-color: #ffffff;
+            color: #333;
             overflow-x: hidden;
         }
-        
-        /* Smooth scrolling */
-        html {
-            scroll-behavior: smooth;
-        }
-        
+
         /* Container */
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 20px;
         }
-        
+
         /* Header */
         .header {
             position: fixed;
@@ -63,106 +56,93 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(0, 0, 0, 0.1);
             z-index: 1000;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            padding: 1rem 0;
+            transition: all 0.3s ease;
         }
-        
+
         .header.scrolled {
             background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            padding: 0.75rem 0;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
-        
+
         .nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 1rem 0;
         }
-        
+
         .logo {
             font-size: 1.8rem;
             font-weight: 700;
             color: #007AFF;
             text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
-        
+
         .nav-links {
             display: flex;
             gap: 2rem;
             align-items: center;
+            list-style: none;
         }
-        
+
         .nav-links a {
             text-decoration: none;
-            color: #1d1d1f;
+            color: #333;
             font-weight: 500;
             transition: color 0.3s ease;
         }
-        
+
         .nav-links a:hover {
             color: #007AFF;
         }
-        
+
+        .mobile-menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #333;
+            cursor: pointer;
+        }
+
+        /* Buttons */
         .btn {
             display: inline-block;
             padding: 0.75rem 1.5rem;
             border-radius: 12px;
             text-decoration: none;
             font-weight: 600;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s ease;
             border: none;
             cursor: pointer;
             font-size: 1rem;
-            position: relative;
-            overflow: hidden;
         }
-        
+
         .btn-primary {
             background: linear-gradient(135deg, #007AFF, #5856D6);
             color: white;
             box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
         }
-        
-        .btn-primary::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.6s ease;
-        }
-        
-        .btn-primary:hover::before {
-            left: 100%;
-        }
-        
+
         .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 30px rgba(0, 122, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 122, 255, 0.4);
         }
-        
-        .btn-primary:active {
-            transform: translateY(-1px);
-            transition: transform 0.1s ease;
-        }
-        
+
         .btn-secondary {
             background: transparent;
             color: #007AFF;
             border: 2px solid #007AFF;
         }
-        
+
         .btn-secondary:hover {
             background: #007AFF;
             color: white;
         }
-        
+
         /* Hero Section */
         .hero {
             padding: 120px 0 80px;
@@ -170,7 +150,7 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             position: relative;
             overflow: hidden;
         }
-        
+
         .hero::before {
             content: '';
             position: absolute;
@@ -181,7 +161,7 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0,122,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
             opacity: 0.5;
         }
-        
+
         .hero-content {
             position: relative;
             z-index: 2;
@@ -189,7 +169,7 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             max-width: 800px;
             margin: 0 auto;
         }
-        
+
         .hero h1 {
             font-size: clamp(2.5rem, 5vw, 4rem);
             font-weight: 800;
@@ -200,7 +180,7 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             background-clip: text;
             line-height: 1.2;
         }
-        
+
         .hero p {
             font-size: 1.25rem;
             color: #6c757d;
@@ -209,20 +189,20 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             margin-left: auto;
             margin-right: auto;
         }
-        
+
         .hero-buttons {
             display: flex;
             gap: 1rem;
             justify-content: center;
             flex-wrap: wrap;
         }
-        
+
         /* Features Section */
         .features {
             padding: 80px 0;
             background: white;
         }
-        
+
         .section-title {
             text-align: center;
             font-size: 2.5rem;
@@ -230,46 +210,29 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             margin-bottom: 3rem;
             color: #1d1d1f;
         }
-        
+
         .features-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 2rem;
             margin-top: 3rem;
         }
-        
+
         .feature-card {
             background: white;
             padding: 2rem;
             border-radius: 20px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
             text-align: center;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s ease;
             border: 1px solid rgba(0, 0, 0, 0.05);
-            position: relative;
-            overflow: hidden;
         }
-        
-        .feature-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 122, 255, 0.1), transparent);
-            transition: left 0.6s ease;
-        }
-        
-        .feature-card:hover::before {
-            left: 100%;
-        }
-        
+
         .feature-card:hover {
-            transform: translateY(-8px) scale(1.02);
+            transform: translateY(-10px);
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
         }
-        
+
         .feature-icon {
             width: 80px;
             height: 80px;
@@ -282,32 +245,32 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             color: white;
             font-size: 2rem;
         }
-        
+
         .feature-card h3 {
             font-size: 1.5rem;
             font-weight: 700;
             margin-bottom: 1rem;
             color: #1d1d1f;
         }
-        
+
         .feature-card p {
             color: #6c757d;
             line-height: 1.6;
         }
-        
+
         /* Reviews Section */
         .reviews {
             padding: 80px 0;
             background: #f8f9fa;
         }
-        
+
         .reviews-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 2rem;
             margin-top: 3rem;
         }
-        
+
         .review-card {
             background: white;
             padding: 2rem;
@@ -315,13 +278,13 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             border: 1px solid rgba(0, 0, 0, 0.05);
         }
-        
+
         .review-header {
             display: flex;
             align-items: center;
             margin-bottom: 1rem;
         }
-        
+
         .review-avatar {
             width: 50px;
             height: 50px;
@@ -334,22 +297,28 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             font-weight: 700;
             margin-right: 1rem;
         }
-        
+
         .review-info h4 {
             font-weight: 600;
             color: #1d1d1f;
         }
-        
+
         .review-rating {
-            color: #FFD700;
+            color: #ffc107;
             margin-top: 0.25rem;
         }
-        
-        .review-content {
+
+        .review-content h5 {
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 0.5rem;
+        }
+
+        .review-content p {
             color: #6c757d;
             line-height: 1.6;
         }
-        
+
         /* CTA Section */
         .cta {
             padding: 80px 0;
@@ -357,163 +326,143 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             color: white;
             text-align: center;
         }
-        
+
         .cta h2 {
             font-size: 2.5rem;
             font-weight: 700;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
-        
+
         .cta p {
             font-size: 1.25rem;
             margin-bottom: 2rem;
             opacity: 0.9;
         }
-        
+
         .cta .btn {
             background: white;
             color: #007AFF;
             font-size: 1.1rem;
             padding: 1rem 2rem;
         }
-        
+
         .cta .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.3);
         }
-        
+
         /* Footer */
         .footer {
             background: #1d1d1f;
             color: white;
-            padding: 60px 0 30px;
+            padding: 60px 0 20px;
         }
-        
+
         .footer-content {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 2rem;
             margin-bottom: 2rem;
         }
-        
+
         .footer-section h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
+            color: #007AFF;
             margin-bottom: 1rem;
-            color: #007AFF;
+            font-size: 1.2rem;
         }
-        
-        .footer-section p,
+
+        .footer-section p {
+            margin-bottom: 0.5rem;
+            opacity: 0.8;
+        }
+
         .footer-section a {
-            color: #a1a1a6;
+            color: white;
             text-decoration: none;
-            line-height: 1.6;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
         }
-        
+
         .footer-section a:hover {
-            color: #007AFF;
+            opacity: 1;
         }
-        
+
         .footer-bottom {
-            border-top: 1px solid #333;
-            padding-top: 2rem;
             text-align: center;
-            color: #a1a1a6;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0.8;
         }
-        
-        /* Mobile menu */
-        .mobile-menu-toggle {
-            display: none;
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            color: #1d1d1f;
-            cursor: pointer;
-        }
-        
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .nav-links {
                 display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: white;
+                flex-direction: column;
+                padding: 1rem;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             }
-            
+
+            .nav-links.active {
+                display: flex;
+            }
+
             .mobile-menu-toggle {
                 display: block;
             }
-            
+
             .hero {
                 padding: 100px 0 60px;
             }
-            
+
             .hero h1 {
                 font-size: 2.5rem;
             }
-            
+
+            .hero p {
+                font-size: 1.1rem;
+            }
+
             .hero-buttons {
                 flex-direction: column;
                 align-items: center;
             }
-            
+
             .features-grid,
             .reviews-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .section-title {
                 font-size: 2rem;
             }
-            
-            .container {
-                padding: 0 15px;
+
+            .footer-content {
+                grid-template-columns: 1fr;
+                text-align: center;
             }
         }
-        
+
         /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
         .fade-in-up {
-            animation: fadeInUp 0.6s ease-out;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease;
         }
-        
-        /* Smooth transitions */
-        .feature-card,
-        .review-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+        .fade-in-up.visible {
+            opacity: 1;
+            transform: translateY(0);
         }
-        
-        /* Loading states */
-        .loading {
-            opacity: 0.7;
-            pointer-events: none;
-        }
-        
-        /* Success/Error messages */
-        .message {
-            padding: 1rem;
-            border-radius: 12px;
-            margin: 1rem 0;
-            font-weight: 500;
-        }
-        
-        .message.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .message.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+
+        /* Smooth scroll */
+        html {
+            scroll-behavior: smooth;
         }
     </style>
 </head>
@@ -522,21 +471,23 @@ $approvedReviews = $reviews->getApprovedReviews(6);
     <header class="header" id="header">
         <div class="container">
             <nav class="nav">
-                <a href="#" class="logo">
-                    <i class="fas fa-rocket"></i> <?php echo APP_NAME; ?>
+                <a href="#home" class="logo">
+                    <i class="fas fa-rocket"></i>
+                    <?php echo APP_NAME; ?>
                 </a>
                 
-                <div class="nav-links">
-                    <a href="#features">Features</a>
-                    <a href="#reviews">Reviews</a>
-                    <a href="#contact">Contact</a>
+                <ul class="nav-links">
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#reviews">Reviews</a></li>
+                    <li><a href="#contact">Contact</a></li>
                     <?php if ($isLoggedIn): ?>
-                        <a href="dashboard.php" class="btn btn-primary">Dashboard</a>
+                        <li><a href="dashboard.php" class="btn btn-primary">Dashboard</a></li>
                     <?php else: ?>
-                        <a href="login.php" class="btn btn-secondary">Login</a>
-                        <a href="register.php" class="btn btn-primary">Sign Up</a>
+                        <li><a href="login.php" class="btn btn-secondary">Login</a></li>
+                        <li><a href="register.php" class="btn btn-primary">Sign Up</a></li>
                     <?php endif; ?>
-                </div>
+                </ul>
                 
                 <button class="mobile-menu-toggle" id="mobileMenuToggle">
                     <i class="fas fa-bars"></i>
@@ -546,17 +497,24 @@ $approvedReviews = $reviews->getApprovedReviews(6);
     </header>
 
     <!-- Hero Section -->
-    <section class="hero">
+    <section class="hero" id="home">
         <div class="container">
-            <div class="hero-content fade-in-up">
+            <div class="hero-content">
                 <h1>Boost Your Social Media Presence</h1>
-                <p>Get real engagement, followers, and growth for all major social media platforms. Premium SMM services with instant delivery and 24/7 support.</p>
+                <p>Get real followers, likes, views, and engagement for all major social media platforms. Premium SMM services with instant delivery and 24/7 support.</p>
+                
                 <div class="hero-buttons">
                     <?php if ($isLoggedIn): ?>
-                        <a href="dashboard.php" class="btn btn-primary">Go to Dashboard</a>
+                        <a href="dashboard.php" class="btn btn-primary">
+                            <i class="fas fa-tachometer-alt"></i> Go to Dashboard
+                        </a>
                     <?php else: ?>
-                        <a href="register.php" class="btn btn-primary">Get Started Free</a>
-                        <a href="#features" class="btn btn-secondary">Learn More</a>
+                        <a href="register.php" class="btn btn-primary">
+                            <i class="fas fa-rocket"></i> Get Started Now
+                        </a>
+                        <a href="login.php" class="btn btn-secondary">
+                            <i class="fas fa-sign-in-alt"></i> Sign In
+                        </a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -567,21 +525,22 @@ $approvedReviews = $reviews->getApprovedReviews(6);
     <section class="features" id="features">
         <div class="container">
             <h2 class="section-title">Why Choose Our Platform?</h2>
+            
             <div class="features-grid">
                 <div class="feature-card fade-in-up">
                     <div class="feature-icon">
                         <i class="fas fa-shield-alt"></i>
                     </div>
                     <h3>Secure & Reliable</h3>
-                    <p>Bank-grade security with encrypted transactions and secure user data protection.</p>
+                    <p>Bank-level security with encrypted transactions and secure payment processing. Your data and privacy are our top priority.</p>
                 </div>
                 
                 <div class="feature-card fade-in-up">
                     <div class="feature-icon">
-                        <i class="fas fa-rocket"></i>
+                        <i class="fas fa-bolt"></i>
                     </div>
                     <h3>Instant Delivery</h3>
-                    <p>Get your orders delivered instantly with our automated system and real-time tracking.</p>
+                    <p>Most services start within minutes of order confirmation. Fast, efficient, and reliable delivery guaranteed.</p>
                 </div>
                 
                 <div class="feature-card fade-in-up">
@@ -589,15 +548,15 @@ $approvedReviews = $reviews->getApprovedReviews(6);
                         <i class="fas fa-headset"></i>
                     </div>
                     <h3>24/7 Support</h3>
-                    <p>Round-the-clock customer support with live chat, tickets, and dedicated account managers.</p>
+                    <p>Round-the-clock customer support via live chat, email, and tickets. We're here to help you succeed.</p>
                 </div>
                 
                 <div class="feature-card fade-in-up">
                     <div class="feature-icon">
                         <i class="fas fa-chart-line"></i>
                     </div>
-                    <h3>Real Analytics</h3>
-                    <p>Track your growth with detailed analytics, reports, and performance insights.</p>
+                    <h3>Real Results</h3>
+                    <p>Authentic engagement that grows your social media presence organically. No fake accounts or bots.</p>
                 </div>
                 
                 <div class="feature-card fade-in-up">
@@ -605,15 +564,15 @@ $approvedReviews = $reviews->getApprovedReviews(6);
                         <i class="fas fa-globe"></i>
                     </div>
                     <h3>Global Reach</h3>
-                    <p>Connect with audiences worldwide across all major social media platforms.</p>
+                    <p>Support for all major platforms: Facebook, Instagram, YouTube, TikTok, Twitter, and more.</p>
                 </div>
                 
                 <div class="feature-card fade-in-up">
                     <div class="feature-icon">
-                        <i class="fas fa-award"></i>
+                        <i class="fas fa-credit-card"></i>
                     </div>
-                    <h3>Premium Quality</h3>
-                    <p>High-quality, genuine engagement that boosts your credibility and reach.</p>
+                    <h3>Flexible Pricing</h3>
+                    <p>Competitive pricing in FCFA with packages for every budget. Start small and scale up as you grow.</p>
                 </div>
             </div>
         </div>
@@ -623,6 +582,7 @@ $approvedReviews = $reviews->getApprovedReviews(6);
     <section class="reviews" id="reviews">
         <div class="container">
             <h2 class="section-title">What Our Clients Say</h2>
+            
             <div class="reviews-grid">
                 <?php if (!empty($approvedReviews)): ?>
                     <?php foreach ($approvedReviews as $review): ?>
@@ -635,7 +595,7 @@ $approvedReviews = $reviews->getApprovedReviews(6);
                                     <h4><?php echo htmlspecialchars($review['name']); ?></h4>
                                     <div class="review-rating">
                                         <?php for ($i = 1; $i <= 5; $i++): ?>
-                                            <i class="fas fa-star<?php echo $i <= $review['rating'] ? '' : '-o'; ?>"></i>
+                                            <i class="fas fa-star <?php echo $i <= $review['rating'] ? 'text-warning' : ''; ?>"></i>
                                         <?php endfor; ?>
                                     </div>
                                 </div>
@@ -655,11 +615,11 @@ $approvedReviews = $reviews->getApprovedReviews(6);
                             <div class="review-info">
                                 <h4>Be the First!</h4>
                                 <div class="review-rating">
-                                    <i class="fas fa-star"></i>
-                                    <i class="fas fa-star"></i>
-                                    <i class="fas fa-star"></i>
-                                    <i class="fas fa-star"></i>
-                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star text-warning"></i>
+                                    <i class="fas fa-star text-warning"></i>
+                                    <i class="fas fa-star text-warning"></i>
+                                    <i class="fas fa-star text-warning"></i>
+                                    <i class="fas fa-star text-warning"></i>
                                 </div>
                             </div>
                         </div>
@@ -672,13 +632,13 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             </div>
             
             <div style="text-align: center; margin-top: 3rem;">
-                <a href="submit-review.php" class="btn btn-primary">Submit Your Review</a>
+                <a href="register.php" class="btn btn-primary">Submit Your Review</a>
             </div>
         </div>
     </section>
 
     <!-- CTA Section -->
-    <section class="cta">
+    <section class="cta" id="contact">
         <div class="container">
             <h2>Ready to Boost Your Social Media?</h2>
             <p>Join thousands of satisfied customers and start growing your online presence today.</p>
@@ -709,10 +669,10 @@ $approvedReviews = $reviews->getApprovedReviews(6);
                 
                 <div class="footer-section">
                     <h3>Support</h3>
-                    <p><a href="support.php">Help Center</a></p>
-                    <p><a href="contact.php">Contact Us</a></p>
-                    <p><a href="terms.php">Terms of Service</a></p>
-                    <p><a href="privacy.php">Privacy Policy</a></p>
+                    <p><a href="dashboard.php?tab=tickets">Help Center</a></p>
+                    <p><a href="dashboard.php?tab=tickets">Contact Us</a></p>
+                    <p><a href="#">Terms of Service</a></p>
+                    <p><a href="#">Privacy Policy</a></p>
                 </div>
                 
                 <div class="footer-section">
@@ -755,89 +715,46 @@ $approvedReviews = $reviews->getApprovedReviews(6);
             });
         });
 
-        // Enhanced Intersection Observer for animations
+        // Intersection Observer for animations
         const observerOptions = {
             threshold: 0.1,
-            rootMargin: '0px 0px -100px 0px'
+            rootMargin: '0px 0px -50px 0px'
         };
 
         const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry, index) => {
+            entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    // Staggered animation with delays
-                    setTimeout(() => {
-                        entry.target.classList.add('visible');
-                    }, index * 100);
+                    entry.target.classList.add('visible');
                 }
             });
         }, observerOptions);
 
-        // Observe all animated elements with enhanced transitions
-        document.querySelectorAll('.fade-in-up').forEach((el, index) => {
-            el.style.opacity = '0';
-            el.style.transform = 'translateY(40px)';
-            el.style.transition = `all 0.8s cubic-bezier(0.4, 0, 0.2, 1) ${index * 0.1}s`;
+        // Observe all animated elements
+        document.querySelectorAll('.fade-in-up').forEach(el => {
             observer.observe(el);
-        });
-
-        // Parallax effect for hero section
-        window.addEventListener('scroll', function() {
-            const scrolled = window.pageYOffset;
-            const hero = document.querySelector('.hero');
-            if (hero) {
-                const rate = scrolled * -0.5;
-                hero.style.transform = `translateY(${rate}px)`;
-            }
-        });
-
-        // Smooth reveal animations for features
-        const featureCards = document.querySelectorAll('.feature-card');
-        featureCards.forEach((card, index) => {
-            card.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateY(-8px) scale(1.02)';
-                this.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.15)';
-            });
-            
-            card.addEventListener('mouseleave', function() {
-                this.style.transform = 'translateY(0) scale(1)';
-                this.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.1)';
-            });
-        });
-
-        // Enhanced button interactions
-        const buttons = document.querySelectorAll('.btn');
-        buttons.forEach(button => {
-            button.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateY(-2px)';
-                this.style.boxShadow = '0 8px 25px rgba(0, 122, 255, 0.3)';
-            });
-            
-            button.addEventListener('mouseleave', function() {
-                this.style.transform = 'translateY(0)';
-                this.style.boxShadow = '0 4px 15px rgba(0, 122, 255, 0.2)';
-            });
-        });
-
-        // Loading animation for dynamic content
-        function showLoading(element) {
-            element.classList.add('loading');
-            element.innerHTML = '<div style="text-align: center; padding: 2rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
-        }
-
-        // Smooth page transitions
-        document.addEventListener('DOMContentLoaded', function() {
-            document.body.style.opacity = '0';
-            document.body.style.transition = 'opacity 0.5s ease';
-            
-            setTimeout(() => {
-                document.body.style.opacity = '1';
-            }, 100);
         });
 
         // Mobile menu toggle
         document.getElementById('mobileMenuToggle').addEventListener('click', function() {
             const navLinks = document.querySelector('.nav-links');
-            navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
+            navLinks.classList.toggle('active');
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const navLinks = document.querySelector('.nav-links');
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            
+            if (!navLinks.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                navLinks.classList.remove('active');
+            }
+        });
+
+        // Close mobile menu when clicking on a link
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', function() {
+                document.querySelector('.nav-links').classList.remove('active');
+            });
         });
     </script>
 </body>
