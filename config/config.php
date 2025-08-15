@@ -53,6 +53,12 @@ ini_set('error_log', APP_ROOT . '/logs/error.log');
 // Timezone
 date_default_timezone_set('Africa/Abidjan');
 
+// Configure session settings
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_secure', 0); // Set to 1 if using HTTPS
+ini_set('session.use_strict_mode', 1);
+ini_set('session.cookie_samesite', 'Lax');
+
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_name(SESSION_NAME);

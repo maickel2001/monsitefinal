@@ -65,18 +65,29 @@ class Admin {
             ]);
         }
         
-        // Clear admin session
-        unset($_SESSION['admin_id']);
-        unset($_SESSION['admin_email']);
-        unset($_SESSION['admin_name']);
-        unset($_SESSION['admin_role']);
-        unset($_SESSION['user_role']);
+        // Clear all session variables
+        $_SESSION = array();
+        
+        // If it's desired to kill the session, also delete the session cookie.
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
+        
+        // Finally, destroy the session.
+        session_destroy();
         
         return true;
     }
     
     public function isLoggedIn() {
-        return isset($_SESSION['admin_id']) && $_SESSION['user_role'] === 'admin';
+        return isset($_SESSION['admin_id']) && 
+               isset($_SESSION['admin_role']) && 
+               $_SESSION['admin_role'] === 'admin' &&
+               !empty($_SESSION['admin_id']);
     }
     
     public function hasRole($requiredRole) {
