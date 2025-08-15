@@ -6,9 +6,9 @@
 
 // Database Configuration
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'smm_platform');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_NAME', 'u634930929_In0');
+define('DB_USER', 'u634930929_In0');
+define('DB_PASS', 'Ino1234@');
 define('DB_CHARSET', 'utf8mb4');
 
 // Application Configuration
